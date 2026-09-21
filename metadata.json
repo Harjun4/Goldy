@@ -1,0 +1,6 @@
+{
+  "name": "Goldy - AI Gold Price Predictor",
+  "description": "AI Assistant & Analytics Engine spesialis prediksi harga emas XAU/USD dan Emas Fisik Antam berbasis Deep Learning LSTM",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
