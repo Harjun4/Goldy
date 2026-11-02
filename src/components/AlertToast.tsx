@@ -16,10 +16,14 @@ export const AlertToast: React.FC<AlertToastProps> = ({
   if (!notification) return null;
 
   return (
-    <div className="fixed top-20 right-4 sm:right-6 z-50 max-w-sm w-full animate-in slide-in-from-top duration-200">
-      <div className="bg-gray-950 border-2 border-amber-500/80 rounded-2xl p-4 shadow-2xl shadow-amber-500/10 text-white flex items-start space-x-3 backdrop-blur-md">
-        <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 shrink-0 mt-0.5 animate-bounce">
-          <BellRing className="w-5 h-5" />
+    <div
+      role="status"
+      aria-live="polite"
+      className="fixed top-20 right-4 sm:right-6 z-50 max-w-sm w-full animate-in slide-in-from-top duration-200"
+    >
+      <div className="bg-gray-950 border-2 border-amber-500/80 rounded-2xl p-4 shadow-2xl text-white flex items-start space-x-3">
+        <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 shrink-0 mt-0.5">
+          <BellRing className="w-5 h-5" aria-hidden="true" />
         </div>
 
         <div className="flex-1 space-y-1">
@@ -38,21 +42,24 @@ export const AlertToast: React.FC<AlertToastProps> = ({
 
           <div className="pt-2 flex items-center justify-between">
             <button
+              type="button"
               onClick={() => {
                 onViewAlerts();
                 onDismiss();
               }}
-              className="text-[11px] font-semibold text-amber-400 hover:text-amber-300 flex items-center gap-1 transition-colors"
+              className="min-h-[44px] px-2.5 py-1.5 rounded-lg text-xs font-semibold text-amber-400 hover:text-amber-300 flex items-center gap-1 transition-colors cursor-pointer"
             >
               <span>Lihat Detail Alert</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
             </button>
 
             <button
+              type="button"
               onClick={onDismiss}
-              className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+              aria-label="Tutup notifikasi"
+              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors cursor-pointer"
             >
-              <X className="w-4 h-4" />
+              <X className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>
         </div>

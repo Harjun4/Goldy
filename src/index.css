@@ -1,27 +1,356 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-gray-850: #18202f;
+}
+
+:root,
+html.light {
+  color-scheme: light;
+  --bg-ground: #f4efe6;
+  --bg-chrome: #efe6d5;
+  --bg-surface: #fffdf9;
+  --bg-subtle: #f3ece0;
+  --bg-muted: #e6dcc8;
+  --border-subtle: #e2d5be;
+  --border-default: #d4c3a3;
+  --border-strong: #b8a37e;
+  --text-primary: #0f172a;
+  --text-secondary: #1e293b;
+  --text-muted: #475569;
+  --accent-gold: #92400e;
+  --accent-gold-bg: #fef3c7;
+  --accent-bullish: #065f46;
+  --accent-bearish: #9f1239;
+  --accent-info: #155e75;
+  --focus-ring: #b45309;
+  --scrollbar-track: #efe6d5;
+  --scrollbar-thumb: #c4b08b;
+  --scrollbar-thumb-hover: #9c845b;
+}
+
+html.dark {
+  color-scheme: dark;
+  --bg-ground: #111827;
+  --bg-chrome: #030712;
+  --bg-surface: #030712;
+  --bg-subtle: #1f2937;
+  --bg-muted: #374151;
+  --border-subtle: #18202f;
+  --border-default: #1f2937;
+  --border-strong: #374151;
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --accent-gold: #fbbf24;
+  --accent-gold-bg: rgba(245, 158, 11, 0.15);
+  --accent-bullish: #34d399;
+  --accent-bearish: #fb7185;
+  --accent-info: #22d3ee;
+  --focus-ring: #fbbf24;
+  --scrollbar-track: #111827;
+  --scrollbar-thumb: #374151;
+  --scrollbar-thumb-hover: #4b5563;
+}
+
 @layer base {
   body {
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    background-color: var(--bg-ground);
+    color: var(--text-primary);
+    margin: 0;
+    transition: background-color 180ms ease, color 180ms ease;
   }
-  
+
   .font-mono {
     font-family: 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid var(--focus-ring) !important;
+    outline-offset: 2px !important;
   }
 }
 
-/* Custom subtle scrollbar for trading log and panels */
+html.dark .text-gray-500,
+html.dark .text-gray-600 {
+  color: #94a3b8 !important;
+}
+
+html.dark .placeholder-gray-500::placeholder,
+html.dark .placeholder-gray-600::placeholder {
+  color: #94a3b8 !important;
+}
+
+html.light header.bg-gray-950\/80 {
+  background: linear-gradient(90deg, rgba(254, 243, 199, 0.92) 0%, rgba(255, 251, 235, 0.94) 50%, rgba(224, 242, 254, 0.92) 100%) !important;
+  border-color: #d977064d !important;
+}
+
+html.light footer.bg-gray-950\/90 {
+  background: linear-gradient(90deg, rgba(254, 243, 199, 0.75) 0%, rgba(244, 239, 230, 0.95) 100%) !important;
+  border-color: #d4c3a3 !important;
+}
+
+html.light .bg-gray-900 {
+  background-color: #fffdf9 !important;
+}
+
+html.light .bg-gray-900\/60 {
+  background-color: #faf5e8 !important;
+}
+
+html.light .bg-gray-950\/80 {
+  background-color: #faf5eb !important;
+}
+
+html.light .bg-gray-950 {
+  background-color: #f3ece0 !important;
+}
+
+html.light .bg-gray-950\/90,
+html.light .bg-gray-950\/70,
+html.light .bg-gray-950\/60,
+html.light .bg-gray-950\/40 {
+  background-color: #f5efe4 !important;
+}
+
+html.light .bg-gray-800 {
+  background-color: #fde68a !important;
+}
+
+html.light .hover\:bg-gray-900:hover {
+  background-color: #fef3c7 !important;
+}
+
+html.light .hover\:bg-gray-800:hover,
+html.light .hover\:bg-gray-700:hover {
+  background-color: #fcd34d !important;
+}
+
+html.light .border-gray-800,
+html.light .border-gray-800\/80 {
+  border-color: #dfd1b8 !important;
+}
+
+html.light .border-gray-850 {
+  border-color: #e6dac3 !important;
+}
+
+html.light .border-gray-700,
+html.light .border-gray-700\/40 {
+  border-color: #c7b28c !important;
+}
+
+html.light .divide-gray-800 > :not([hidden]) ~ :not([hidden]),
+html.light .divide-gray-850 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #dfd1b8 !important;
+}
+
+html.light .bg-gray-800.w-\[1px\] {
+  background-color: #d4c3a3 !important;
+}
+
+html.light .text-white,
+html.light .text-gray-100,
+html.light .prose-invert {
+  color: #0f172a !important;
+}
+
+html.light .text-gray-200,
+html.light .text-gray-300 {
+  color: #1e293b !important;
+}
+
+html.light .text-gray-400 {
+  color: #334155 !important;
+}
+
+html.light .text-gray-500,
+html.light .text-gray-600,
+html.light .text-stone-400,
+html.light .text-stone-500 {
+  color: #475569 !important;
+}
+
+html.light .hover\:text-white:hover,
+html.light .hover\:text-gray-200:hover,
+html.light .hover\:text-gray-300:hover {
+  color: #0f172a !important;
+}
+
+html.light .placeholder-gray-500::placeholder,
+html.light .placeholder-gray-600::placeholder,
+html.light .placeholder\:text-stone-400::placeholder,
+html.light .placeholder\:text-stone-500::placeholder {
+  color: #475569 !important;
+}
+
+html.light .text-amber-300,
+html.light .text-amber-400,
+html.light .text-amber-500,
+html.light .text-amber-400\/90,
+html.light .text-amber-400\/80,
+html.light .text-amber-400\/70,
+html.light .text-amber-200,
+html.light .text-amber-100 {
+  color: #92400e !important;
+}
+
+html.light .text-emerald-300,
+html.light .text-emerald-400,
+html.light .text-emerald-500,
+html.light .text-emerald-400\/70 {
+  color: #065f46 !important;
+}
+
+html.light .text-rose-300,
+html.light .text-rose-400,
+html.light .text-rose-500 {
+  color: #9f1239 !important;
+}
+
+html.light .text-cyan-300,
+html.light .text-cyan-400 {
+  color: #155e75 !important;
+}
+
+html.light .text-sky-400 {
+  color: #075985 !important;
+}
+
+html.light .text-indigo-300,
+html.light .text-indigo-400 {
+  color: #3730a3 !important;
+}
+
+html.light .text-pink-400 {
+  color: #9d174d !important;
+}
+
+html.light .text-purple-400 {
+  color: #5b21b6 !important;
+}
+
+html.light .bg-amber-500\/10,
+html.light .bg-amber-500\/15,
+html.light .bg-amber-500\/20 {
+  background-color: #fef3c7 !important;
+}
+
+html.light .border-amber-500\/20,
+html.light .border-amber-500\/30,
+html.light .border-amber-500\/35,
+html.light .border-amber-500\/40,
+html.light .border-amber-500\/50 {
+  border-color: #f59e0b !important;
+}
+
+html.light .bg-emerald-500\/10,
+html.light .bg-emerald-500\/15,
+html.light .bg-emerald-500\/20 {
+  background-color: #d1fae5 !important;
+}
+
+html.light .border-emerald-500\/20,
+html.light .border-emerald-500\/30,
+html.light .border-emerald-500\/35,
+html.light .border-emerald-500\/40,
+html.light .border-emerald-500\/50 {
+  border-color: #10b981 !important;
+}
+
+html.light .bg-rose-500\/10,
+html.light .bg-rose-500\/15,
+html.light .bg-rose-500\/20 {
+  background-color: #ffe4e6 !important;
+}
+
+html.light .border-rose-500\/20,
+html.light .border-rose-500\/30,
+html.light .border-rose-500\/35,
+html.light .border-rose-500\/40,
+html.light .border-rose-500\/50 {
+  border-color: #f43f5e !important;
+}
+
+html.light .bg-cyan-500\/10,
+html.light .bg-cyan-500\/20 {
+  background-color: #cffafe !important;
+}
+
+html.light .border-cyan-500\/20,
+html.light .border-cyan-500\/30,
+html.light .border-cyan-500\/35,
+html.light .border-cyan-500\/40,
+html.light .border-cyan-500\/50 {
+  border-color: #06b6d4 !important;
+}
+
+html.light .bg-indigo-500\/10,
+html.light .bg-indigo-500\/20 {
+  background-color: #e0e7ff !important;
+}
+
+html.light .border-indigo-500\/20,
+html.light .border-indigo-500\/30 {
+  border-color: #6366f1 !important;
+}
+
+html.light .bg-purple-500\/10,
+html.light .bg-purple-500\/20 {
+  background-color: #f3e8ff !important;
+}
+
+html.light .border-purple-500\/20,
+html.light .border-purple-500\/30,
+html.light .border-purple-500\/40 {
+  border-color: #a855f7 !important;
+}
+
+html.light .shadow-xl,
+html.light .shadow-2xl {
+  box-shadow: 0 4px 16px -3px rgba(180, 83, 9, 0.08), 0 2px 6px -1px rgba(15, 23, 42, 0.05) !important;
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #111827;
+  background: var(--scrollbar-track);
 }
 ::-webkit-scrollbar-thumb {
-  background: #374151;
+  background: var(--scrollbar-thumb);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #4b5563;
+  background: var(--scrollbar-thumb-hover);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
