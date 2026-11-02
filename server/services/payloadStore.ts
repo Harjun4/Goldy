@@ -1,6 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import { WORKSPACE_ROOT } from '../config';
+import fallbackPayload from '../../payload_goldy.json';
+import fallbackCandles from '../../src/data/realGoldData.json';
 
 let cachedPayload: any = null;
 let cachedFullCandles: any[] | null = null;
@@ -20,22 +22,34 @@ export function setSyncInProgress(inProgress: boolean) {
 
 export function loadPayload(forceReload: boolean = false) {
   if (cachedPayload && !forceReload) return cachedPayload;
-  const payloadPath = path.join(WORKSPACE_ROOT, 'payload_goldy.json');
-  const raw = fs.readFileSync(payloadPath, 'utf-8');
-  cachedPayload = JSON.parse(raw);
+  try {
+    const payloadPath = path.join(WORKSPACE_ROOT, 'payload_goldy.json');
+    if (fs.existsSync(payloadPath)) {
+      const raw = fs.readFileSync(payloadPath, 'utf-8');
+      cachedPayload = JSON.parse(raw);
+      return cachedPayload;
+    }
+  } catch (e) {
+    console.warn('[payloadStore] Failed to load payload from disk, using fallback import:', e);
+  }
+  cachedPayload = fallbackPayload;
   return cachedPayload;
 }
 
 export function loadFullCandles(forceReload: boolean = false): any[] {
   if (cachedFullCandles && !forceReload) return cachedFullCandles;
-  const candlesPath = path.join(WORKSPACE_ROOT, 'src', 'data', 'realGoldData.json');
-  if (fs.existsSync(candlesPath)) {
-    const raw = fs.readFileSync(candlesPath, 'utf-8');
-    cachedFullCandles = JSON.parse(raw);
-    return cachedFullCandles || [];
+  try {
+    const candlesPath = path.join(WORKSPACE_ROOT, 'src', 'data', 'realGoldData.json');
+    if (fs.existsSync(candlesPath)) {
+      const raw = fs.readFileSync(candlesPath, 'utf-8');
+      cachedFullCandles = JSON.parse(raw);
+      return cachedFullCandles || [];
+    }
+  } catch (e) {
+    console.warn('[payloadStore] Failed to load candles from disk, using fallback import:', e);
   }
-  const p = loadPayload(forceReload);
-  return p.chart_series?.candlestick_history || [];
+  cachedFullCandles = fallbackCandles;
+  return cachedFullCandles || [];
 }
 
 export function computeStatsFromPayload(p: any) {
