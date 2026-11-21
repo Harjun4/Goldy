@@ -162,7 +162,7 @@ export const PredictionComparisonTable: React.FC<PredictionComparisonTableProps>
                 Tabel Evaluasi & Komparasi Model ({selectedAsset})
               </h2>
               <p className={`text-xs ${isLight ? 'text-stone-600' : 'text-gray-400'}`}>
-                Audit rekonsiliasi proyeksi Random Forest vs realita penutupan pasar CME/Antam secara transparan
+                Audit rekonsiliasi proyeksi Hybrid ML (RF & LSTM) vs realita penutupan pasar CME/Antam secara transparan
               </p>
             </div>
           </div>

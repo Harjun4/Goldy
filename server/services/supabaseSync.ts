@@ -40,7 +40,7 @@ export async function syncSupabaseWithLatestData(payload: any, candles: any[]) {
     const buildSignal = (retPct: number) =>
       retPct > 0.2 ? 'BUY' : retPct < -0.2 ? 'SELL' : 'HOLD';
 
-    const engineName = payload.model_metadata?.architecture || 'Goldy Multi-Horizon RF Core';
+    const engineName = payload.model_metadata?.architecture || 'Hybrid Multi-Horizon Core (RF + LSTM)';
     const nowIso = new Date().toISOString();
 
     const targetPredictions = [

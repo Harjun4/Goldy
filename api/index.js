@@ -157,7 +157,7 @@ async function syncSupabaseWithLatestData(payload, candles) {
     const h7TargetDate = payload.chart_series?.projection_path?.[2]?.time || getNextBusinessDay(baseDate, 5);
     const h30TargetDate = payload.chart_series?.projection_path?.[3]?.time || getNextBusinessDay(baseDate, 22);
     const buildSignal = (retPct) => retPct > 0.2 ? "BUY" : retPct < -0.2 ? "SELL" : "HOLD";
-    const engineName = payload.model_metadata?.architecture || "Goldy Multi-Horizon RF Core";
+    const engineName = payload.model_metadata?.architecture || "Hybrid Multi-Horizon Core (RF + LSTM)";
     const nowIso = (/* @__PURE__ */ new Date()).toISOString();
     const targetPredictions = [
       // XAU/USD
@@ -308,36 +308,105 @@ async function syncSupabaseWithLatestData(payload, candles) {
 
 // server/services/gemini.ts
 var DEFAULT_GEMINI_MODELS = [
-  "gemini-2.5-flash",
-  "gemini-2.5-pro",
-  "gemini-2.0-flash",
-  "gemini-flash-latest",
-  "gemini-pro-latest"
+  "gemini-3.8-flash",
+  "gemini-3.5-flash",
+  "gemini-3.5-flash-lite",
+  "gemini-flash-lite-latest",
+  "gemini-3-flash-preview",
+  "gemini-3.1-flash-lite",
+  "gemini-flash-latest"
 ];
-var cachedGeminiModels = null;
+var EXCLUDED_MODEL_PATTERNS = [
+  "gemini-1.",
+  "gemini-2.0",
+  "gemini-2.5",
+  "pro-latest",
+  "tts",
+  "image",
+  "embedding",
+  "robotics",
+  "computer-use",
+  "transcribe",
+  "omni",
+  "customtools",
+  "antigravity",
+  "deep-research",
+  "lyria",
+  "nano-banana"
+];
+var DISCOVERY_CACHE_TTL_MS = 30 * 60 * 1e3;
+var COOLDOWN_429_MS = 10 * 60 * 1e3;
+var COOLDOWN_503_MS = 2 * 60 * 1e3;
+var cachedDiscovery = null;
+var modelCooldowns = /* @__PURE__ */ new Map();
+function markGeminiModelFailure(modelName, status) {
+  if (!modelName) return;
+  if (status === 404) {
+    modelCooldowns.set(modelName, Infinity);
+  } else if (status === 429) {
+    modelCooldowns.set(modelName, Date.now() + COOLDOWN_429_MS);
+  } else if (status === 503 || status === 0 || status >= 500) {
+    modelCooldowns.set(modelName, Date.now() + COOLDOWN_503_MS);
+  }
+}
+function isSupportedFlashModel(model) {
+  if (!Array.isArray(model?.supportedGenerationMethods) || !model.supportedGenerationMethods.includes("generateContent") || typeof model?.name !== "string") {
+    return false;
+  }
+  const lower = model.name.replace(/^models\//, "").toLowerCase();
+  if (!lower.includes("gemini") || !lower.includes("flash")) {
+    return false;
+  }
+  return !EXCLUDED_MODEL_PATTERNS.some((pattern) => lower.includes(pattern));
+}
+function applyOverrideAndCooldown(baseModels) {
+  const override = process.env.GEMINI_MODEL?.trim();
+  const candidates = override ? [override, ...baseModels.filter((m) => m !== override)] : [...baseModels];
+  const now = Date.now();
+  for (const [name, until] of modelCooldowns.entries()) {
+    if (until !== Infinity && until <= now) {
+      modelCooldowns.delete(name);
+    }
+  }
+  const non404 = candidates.filter((m) => modelCooldowns.get(m) !== Infinity);
+  const active = non404.filter((m) => {
+    const until = modelCooldowns.get(m);
+    return until === void 0 || until <= now;
+  });
+  return active.length > 0 ? active : non404;
+}
 async function getSupportedGeminiModels(apiKey) {
-  if (cachedGeminiModels && cachedGeminiModels.length > 0) {
-    return cachedGeminiModels;
+  const now = Date.now();
+  if (cachedDiscovery && cachedDiscovery.apiKey === apiKey && cachedDiscovery.expiresAt > now && cachedDiscovery.models.length > 0) {
+    return applyOverrideAndCooldown(cachedDiscovery.models);
   }
   try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
+      { signal: AbortSignal.timeout(8e3) }
+    );
     if (res.ok) {
       const data = await res.json();
-      const available = (data.models || []).filter(
-        (m) => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes("generateContent") && m.name?.includes("gemini") && !m.name?.includes("tts") && !m.name?.includes("image") && !m.name?.includes("embedding") && !m.name?.includes("robotics") && !m.name?.includes("computer-use")
-      ).map((m) => m.name.replace("models/", ""));
-      const merged = [...DEFAULT_GEMINI_MODELS];
-      for (const modelName of available) {
-        if (!merged.includes(modelName)) {
-          merged.push(modelName);
+      const available = (data.models || []).filter(isSupportedFlashModel).map((m) => m.name.replace(/^models\//, ""));
+      if (available.length > 0) {
+        const availableSet = new Set(available);
+        const prioritized = DEFAULT_GEMINI_MODELS.filter((m) => availableSet.has(m));
+        for (const modelName of available) {
+          if (!prioritized.includes(modelName)) {
+            prioritized.push(modelName);
+          }
         }
+        cachedDiscovery = {
+          apiKey,
+          models: prioritized,
+          expiresAt: Date.now() + DISCOVERY_CACHE_TTL_MS
+        };
+        return applyOverrideAndCooldown(prioritized);
       }
-      cachedGeminiModels = merged;
-      return merged;
     }
-  } catch (err) {
+  } catch {
   }
-  return DEFAULT_GEMINI_MODELS;
+  return applyOverrideAndCooldown(DEFAULT_GEMINI_MODELS);
 }
 function buildValidGeminiContents(history, currentMessage) {
   const rawTurns = [];
@@ -381,7 +450,7 @@ apiRouter.get("/health", (_req, res) => {
   const { isSyncInProgress: isSyncInProgress2, lastSyncTimestamp: lastSyncTimestamp2 } = getSyncState();
   res.json({
     status: "ok",
-    engine: "Goldy Analytics Engine v2.5 (Multi-Horizon RF Core)",
+    engine: "Goldy Analytics Engine v2.5 (Cross-Paradigm Hybrid RF + LSTM Core)",
     is_syncing: isSyncInProgress2,
     last_sync: lastSyncTimestamp2
   });
@@ -507,7 +576,7 @@ apiRouter.get("/goldy/comparisons", async (req, res) => {
             direction_hit: r.direction_hit,
             confidence_score: Number(r.confidence_score),
             status: r.status,
-            model_version: r.engine_name || "Advanced Multi-Horizon RF v2.0"
+            model_version: r.engine_name || "Hybrid Multi-Horizon Core (RF + LSTM)"
           };
         });
         const evaluated = rows.filter((r) => r.status === "EVALUATED");
@@ -570,7 +639,7 @@ apiRouter.get("/goldy/comparisons", async (req, res) => {
         direction_hit: true,
         confidence_score: 88,
         status: "EVALUATED",
-        model_version: p.model_metadata?.architecture || "Advanced Multi-Horizon RF v2.0"
+        model_version: p.model_metadata?.architecture || "Hybrid Multi-Horizon Core (RF + LSTM)"
       });
     }
     return res.json({
@@ -592,67 +661,6 @@ apiRouter.get("/goldy/comparisons", async (req, res) => {
     res.status(500).json({ status: "error", message: err.message });
   }
 });
-apiRouter.get("/goldy/predict", (req, res) => {
-  const p = loadPayload();
-  const statsMap = computeStatsFromPayload(p);
-  const assetParam = (req.query.asset || "XAU/USD").toUpperCase();
-  const includeDetails = req.query.include_details === "true";
-  const customPrice = req.query.price ? parseFloat(req.query.price) : null;
-  const isAntam = assetParam.includes("ANTAM") || assetParam.includes("IDR");
-  const assetKey = isAntam ? "ANTAM" : "XAU/USD";
-  const baseStats = statsMap[assetKey];
-  const lastPrice = customPrice && !isNaN(customPrice) ? customPrice : baseStats.lastPrice;
-  const ratioH1 = baseStats.predictedH1 / baseStats.lastPrice;
-  const ratioH7 = baseStats.predictedH7 / baseStats.lastPrice;
-  const ratioH30 = baseStats.predictedH30 / baseStats.lastPrice;
-  const predictedH1 = isAntam ? Math.round(lastPrice * ratioH1) : Math.round(lastPrice * ratioH1 * 100) / 100;
-  const predictedH7 = isAntam ? Math.round(lastPrice * ratioH7) : Math.round(lastPrice * ratioH7 * 100) / 100;
-  const predictedH30 = isAntam ? Math.round(lastPrice * ratioH30) : Math.round(lastPrice * ratioH30 * 100) / 100;
-  const changePctVal = (predictedH1 - lastPrice) / lastPrice * 100;
-  const changePctFormatted = `${changePctVal >= 0 ? "+" : ""}${changePctVal.toFixed(2)}%`;
-  let signal = "HOLD";
-  if (changePctVal > 0.2) signal = "BUY";
-  else if (changePctVal < -0.2) signal = "SELL";
-  const standardPayload = {
-    asset: assetKey,
-    last_price: lastPrice,
-    predicted_h1: predictedH1,
-    predicted_h7: predictedH7,
-    signal,
-    change_percentage: changePctFormatted,
-    accuracy_rate: baseStats.accuracyRate,
-    timestamp: p.timestamp || (/* @__PURE__ */ new Date()).toISOString()
-  };
-  if (includeDetails) {
-    return res.json({
-      ...standardPayload,
-      predicted_h30: predictedH30,
-      conservative_h1: baseStats.conservativeH1,
-      conservative_h7: baseStats.conservativeH7,
-      conservative_h30: baseStats.conservativeH30,
-      model_metrics: {
-        engine: p.model_metadata.engine_name,
-        architecture: p.model_metadata.architecture,
-        sliding_window_days: 60,
-        rmse: baseStats.rmse,
-        unit: baseStats.unit
-      },
-      technicals: {
-        sma_20: baseStats.sma20,
-        ema_50: baseStats.ema50,
-        rsi_14: baseStats.rsi,
-        rsi_status: p.technical_indicators.momentum.rsi_status,
-        ma_cross: p.technical_indicators.momentum.ma_cross_status,
-        support_1: baseStats.s1,
-        support_2: baseStats.s2,
-        resistance_1: baseStats.r1,
-        resistance_2: baseStats.r2
-      },
-      macro_sensitivities: p.macro_sensitivities
-    });
-  }
-  return res.json(standardPayload);
-});
 apiRouter.post("/goldy/chat", async (req, res) => {
   try {
     const p = loadPayload();
@@ -669,7 +677,7 @@ apiRouter.post("/goldy/chat", async (req, res) => {
     const isXau = currentAsset === "XAU/USD";
     const fmt = (v) => isXau ? `$${v.toFixed(2)}` : `Rp ${Math.round(v).toLocaleString("id-ID")}`;
     const systemInstruction = `Anda adalah **Goldy**, AI Assistant & Analytics Engine spesialis prediksi harga emas (XAU/USD dan Emas Fisik Antam).
-Anda beroperasi dalam **Mode A (Analis Pasar & Edukasi Pengguna)**.
+Anda beroperasi sebagai **Analisis AI (Analis Pasar & Edukasi Pengguna)**.
 
 Aturan Analisis & Sinyal Perdagangan:
 1. **BUY**: Target Proyeksi H+1 > (Harga Saat Ini + 0.2%).
@@ -713,14 +721,15 @@ Format Respons Wajib (Gunakan Bahasa Indonesia yang profesional, objektif, dan t
       const ai = new GoogleGenAI({ apiKey });
       const modelsToTry = await getSupportedGeminiModels(apiKey);
       const validContents = buildValidGeminiContents(history, message);
-      for (const modelName of modelsToTry) {
+      for (const modelName of modelsToTry.slice(0, 6)) {
         try {
           const response = await ai.models.generateContent({
             model: modelName,
             contents: validContents,
             config: {
               systemInstruction,
-              temperature: 0.35
+              temperature: 0.35,
+              abortSignal: AbortSignal.timeout(15e3)
             }
           });
           if (response && response.text) {
@@ -732,6 +741,7 @@ Format Respons Wajib (Gunakan Bahasa Indonesia yang profesional, objektif, dan t
         } catch (modelErr) {
           const status = modelErr?.status || modelErr?.httpStatusCode || 0;
           lastErrorStatus = status;
+          markGeminiModelFailure(modelName, status);
           console.warn(
             `[Goldy Gemini Fallback] Model "${modelName}" gagal (Status: ${status || "ERR"}): ${modelErr?.message || "Unknown error"}. Mencoba model cadangan...`
           );

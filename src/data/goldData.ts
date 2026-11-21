@@ -402,7 +402,12 @@ export function createAssetData(
       support2,
       resistance1,
       resistance2,
-      trend: mom.rsi_14 > 70 ? 'BEARISH' : 'BULLISH',
+      trend:
+        (mom.ma_cross_status || '').toLowerCase().includes('bearish') || sma20 < ema50
+          ? 'BEARISH'
+          : sma20 > ema50
+          ? 'BULLISH'
+          : 'NEUTRAL',
     },
     macro: {
       dxyIndex: p.macro_sensitivities.dxy.value,

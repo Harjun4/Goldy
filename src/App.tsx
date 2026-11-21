@@ -12,7 +12,6 @@ import { TradingViewChart } from './components/TradingViewChart';
 import { AiAnalyticsPanel } from './components/AiAnalyticsPanel';
 import { TechnicalMacroMatrix } from './components/TechnicalMacroMatrix';
 import { ModeAChat } from './components/ModeAChat';
-import { ModeBExplorer } from './components/ModeBExplorer';
 import { PriceAlertModal } from './components/PriceAlertModal';
 import { PriceAlertPanel } from './components/PriceAlertPanel';
 import { PredictionComparisonTable } from './components/PredictionComparisonTable';
@@ -99,7 +98,7 @@ export default function App() {
     return 'dark';
   });
   const [asset, setAsset] = useState<AssetType>('XAU/USD');
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'comparison' | 'modeA' | 'modeB' | 'alerts'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'comparison' | 'modeA' | 'alerts'>('dashboard');
   const [timeframe, setTimeframe] = useState<TimeframeType>('1D');
   const priceOffset = 0;
   const [chatPrompt, setChatPrompt] = useState<string | undefined>(undefined);
@@ -210,7 +209,7 @@ export default function App() {
         title: isAutoBackground
           ? `Auto-Sync Harian Selesai (${lastDate})`
           : `Sinkronisasi Data & ML Selesai (${durationSec}s)`,
-        message: `Data pasar hingga ${lastDate} (${newBars > 0 ? `+${newBars} bar baru` : 'terkini'}) & prediksi Advanced RF untuk besok (${forecastDate}) berhasil dimuat. XAU/USD: $${Number(xauPrice).toFixed(2)} -> Target H+1: $${Number(targetH1).toFixed(2)} (${sig}).`,
+        message: `Data pasar hingga ${lastDate} (${newBars > 0 ? `+${newBars} bar baru` : 'terkini'}) & prediksi Hybrid ML (RF + LSTM) untuk besok (${forecastDate}) berhasil dimuat. XAU/USD: $${Number(xauPrice).toFixed(2)} -> Target H+1: $${Number(targetH1).toFixed(2)} (${sig}).`,
         timestamp,
         price: Number(xauPrice),
         read: false,
@@ -483,7 +482,6 @@ export default function App() {
                 <AiAnalyticsPanel
                   data={currentData}
                   onAskGoldy={handleAskGoldy}
-                  onOpenModeB={() => setActiveTab('modeB')}
                 />
               </div>
             </div>
@@ -513,7 +511,7 @@ export default function App() {
                   </span>
                   <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-900 border border-gray-800">
                     <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                    Yahoo Finance & Advanced RF Pipeline
+                    Yahoo Finance & Hybrid ML Pipeline (RF + LSTM)
                   </span>
                 </div>
               </div>
@@ -582,13 +580,6 @@ export default function App() {
           <ModeAChat
             data={currentData}
             initialQuestion={chatPrompt}
-          />
-        )}
-
-        {activeTab === 'modeB' && (
-          <ModeBExplorer
-            currentAsset={asset}
-            lastPrice={currentData.lastPrice}
           />
         )}
       </main>

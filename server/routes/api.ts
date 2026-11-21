@@ -11,7 +11,11 @@ import {
   setSyncInProgress,
 } from '../services/payloadStore';
 import { getNextBusinessDay, syncSupabaseWithLatestData } from '../services/supabaseSync';
-import { getSupportedGeminiModels, buildValidGeminiContents } from '../services/gemini';
+import {
+  getSupportedGeminiModels,
+  buildValidGeminiContents,
+  markGeminiModelFailure,
+} from '../services/gemini';
 
 const execFileAsync = promisify(execFile);
 
@@ -21,7 +25,7 @@ apiRouter.get('/health', (_req, res) => {
   const { isSyncInProgress, lastSyncTimestamp } = getSyncState();
   res.json({
     status: 'ok',
-    engine: 'Goldy Analytics Engine v2.5 (Multi-Horizon RF Core)',
+    engine: 'Goldy Analytics Engine v2.5 (Cross-Paradigm Hybrid RF + LSTM Core)',
     is_syncing: isSyncInProgress,
     last_sync: lastSyncTimestamp,
   });
@@ -173,7 +177,7 @@ apiRouter.get('/goldy/comparisons', async (req, res) => {
             direction_hit: r.direction_hit,
             confidence_score: Number(r.confidence_score),
             status: r.status,
-            model_version: r.engine_name || 'Advanced Multi-Horizon RF v2.0',
+            model_version: r.engine_name || 'Hybrid Multi-Horizon Core (RF + LSTM)',
           };
         });
 
@@ -254,7 +258,7 @@ apiRouter.get('/goldy/comparisons', async (req, res) => {
         direction_hit: true,
         confidence_score: 88,
         status: 'EVALUATED',
-        model_version: p.model_metadata?.architecture || 'Advanced Multi-Horizon RF v2.0',
+        model_version: p.model_metadata?.architecture || 'Hybrid Multi-Horizon Core (RF + LSTM)',
       });
     }
 
@@ -278,83 +282,6 @@ apiRouter.get('/goldy/comparisons', async (req, res) => {
   }
 });
 
-apiRouter.get('/goldy/predict', (req, res) => {
-  const p = loadPayload();
-  const statsMap = computeStatsFromPayload(p);
-
-  const assetParam = ((req.query.asset as string) || 'XAU/USD').toUpperCase();
-  const includeDetails = req.query.include_details === 'true';
-  const customPrice = req.query.price ? parseFloat(req.query.price as string) : null;
-
-  const isAntam = assetParam.includes('ANTAM') || assetParam.includes('IDR');
-  const assetKey = isAntam ? 'ANTAM' : 'XAU/USD';
-  const baseStats = statsMap[assetKey];
-
-  const lastPrice = customPrice && !isNaN(customPrice) ? customPrice : baseStats.lastPrice;
-  const ratioH1 = baseStats.predictedH1 / baseStats.lastPrice;
-  const ratioH7 = baseStats.predictedH7 / baseStats.lastPrice;
-  const ratioH30 = baseStats.predictedH30 / baseStats.lastPrice;
-
-  const predictedH1 = isAntam
-    ? Math.round(lastPrice * ratioH1)
-    : Math.round(lastPrice * ratioH1 * 100) / 100;
-  const predictedH7 = isAntam
-    ? Math.round(lastPrice * ratioH7)
-    : Math.round(lastPrice * ratioH7 * 100) / 100;
-  const predictedH30 = isAntam
-    ? Math.round(lastPrice * ratioH30)
-    : Math.round(lastPrice * ratioH30 * 100) / 100;
-
-  const changePctVal = ((predictedH1 - lastPrice) / lastPrice) * 100;
-  const changePctFormatted = `${changePctVal >= 0 ? '+' : ''}${changePctVal.toFixed(2)}%`;
-
-  let signal: 'BUY' | 'SELL' | 'HOLD' = 'HOLD';
-  if (changePctVal > 0.2) signal = 'BUY';
-  else if (changePctVal < -0.2) signal = 'SELL';
-
-  const standardPayload = {
-    asset: assetKey,
-    last_price: lastPrice,
-    predicted_h1: predictedH1,
-    predicted_h7: predictedH7,
-    signal,
-    change_percentage: changePctFormatted,
-    accuracy_rate: baseStats.accuracyRate,
-    timestamp: p.timestamp || new Date().toISOString(),
-  };
-
-  if (includeDetails) {
-    return res.json({
-      ...standardPayload,
-      predicted_h30: predictedH30,
-      conservative_h1: baseStats.conservativeH1,
-      conservative_h7: baseStats.conservativeH7,
-      conservative_h30: baseStats.conservativeH30,
-      model_metrics: {
-        engine: p.model_metadata.engine_name,
-        architecture: p.model_metadata.architecture,
-        sliding_window_days: 60,
-        rmse: baseStats.rmse,
-        unit: baseStats.unit,
-      },
-      technicals: {
-        sma_20: baseStats.sma20,
-        ema_50: baseStats.ema50,
-        rsi_14: baseStats.rsi,
-        rsi_status: p.technical_indicators.momentum.rsi_status,
-        ma_cross: p.technical_indicators.momentum.ma_cross_status,
-        support_1: baseStats.s1,
-        support_2: baseStats.s2,
-        resistance_1: baseStats.r1,
-        resistance_2: baseStats.r2,
-      },
-      macro_sensitivities: p.macro_sensitivities,
-    });
-  }
-
-  return res.json(standardPayload);
-});
-
 apiRouter.post('/goldy/chat', async (req, res) => {
   try {
     const p = loadPayload();
@@ -375,7 +302,7 @@ apiRouter.post('/goldy/chat', async (req, res) => {
       isXau ? `$${v.toFixed(2)}` : `Rp ${Math.round(v).toLocaleString('id-ID')}`;
 
     const systemInstruction = `Anda adalah **Goldy**, AI Assistant & Analytics Engine spesialis prediksi harga emas (XAU/USD dan Emas Fisik Antam).
-Anda beroperasi dalam **Mode A (Analis Pasar & Edukasi Pengguna)**.
+Anda beroperasi sebagai **Analisis AI (Analis Pasar & Edukasi Pengguna)**.
 
 Aturan Analisis & Sinyal Perdagangan:
 1. **BUY**: Target Proyeksi H+1 > (Harga Saat Ini + 0.2%).
@@ -422,7 +349,7 @@ Format Respons Wajib (Gunakan Bahasa Indonesia yang profesional, objektif, dan t
       const modelsToTry = await getSupportedGeminiModels(apiKey);
       const validContents = buildValidGeminiContents(history, message);
 
-      for (const modelName of modelsToTry) {
+      for (const modelName of modelsToTry.slice(0, 6)) {
         try {
           const response = await ai.models.generateContent({
             model: modelName,
@@ -430,6 +357,7 @@ Format Respons Wajib (Gunakan Bahasa Indonesia yang profesional, objektif, dan t
             config: {
               systemInstruction,
               temperature: 0.35,
+              abortSignal: AbortSignal.timeout(15000),
             },
           });
 
@@ -442,6 +370,7 @@ Format Respons Wajib (Gunakan Bahasa Indonesia yang profesional, objektif, dan t
         } catch (modelErr: any) {
           const status = modelErr?.status || modelErr?.httpStatusCode || 0;
           lastErrorStatus = status;
+          markGeminiModelFailure(modelName, status);
           console.warn(
             `[Goldy Gemini Fallback] Model "${modelName}" gagal (Status: ${status || 'ERR'}): ${modelErr?.message || 'Unknown error'}. Mencoba model cadangan...`
           );

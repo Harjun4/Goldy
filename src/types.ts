@@ -213,10 +213,12 @@ export interface GoldyMasterPayload {
     };
     us10y: {
       yield_pct: number;
+      impact?: string;
       interpretation: string;
     };
     usd_idr: {
       rate: number;
+      change_pct?: number;
       status: string;
       interpretation: string;
     };
@@ -242,33 +244,6 @@ export interface GoldyMasterPayload {
   };
 }
 
-export interface GoldyApiPayload {
-  asset: string;
-  last_price: number;
-  predicted_h1: number;
-  predicted_h7: number;
-  signal: SignalType;
-  change_percentage: string;
-  accuracy_rate: string;
-  timestamp: string;
-  details?: {
-    predicted_h30?: number;
-    currency?: string;
-    unit?: string;
-    rmse?: number | string;
-    sliding_window_days?: number;
-    rule_applied?: string;
-    model?: string;
-    architecture?: string;
-    confidence_score?: number;
-    conservative_targets?: {
-      h1: number;
-      h7: number;
-      h30: number;
-    };
-  };
-}
-
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -278,7 +253,6 @@ export interface ChatMessage {
     signal?: SignalType;
     asset?: AssetType;
     predicted_h1?: number;
-    isModeBPayload?: boolean;
   };
 }
 

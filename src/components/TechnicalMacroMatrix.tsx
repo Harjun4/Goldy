@@ -3,6 +3,7 @@ import { AssetAnalysisData } from '../types';
 import { 
   Gauge, 
   TrendingUp, 
+  TrendingDown,
   DollarSign, 
   Landmark, 
   Globe2, 
@@ -26,6 +27,10 @@ export const TechnicalMacroMatrix: React.FC<TechnicalMacroMatrixProps> = ({ data
 
   const isRsiOverbought = data.technicals.rsi >= 70;
   const isRsiOversold = data.technicals.rsi <= 30;
+  const isMaBearish =
+    data.technicals.trend === 'BEARISH' ||
+    data.technicals.sma20 < data.technicals.ema50 ||
+    (data.technicals.maCrossStatus || '').toLowerCase().includes('bearish');
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -44,7 +49,7 @@ export const TechnicalMacroMatrix: React.FC<TechnicalMacroMatrixProps> = ({ data
               ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
               : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
           }`}>
-            {data.technicals.trend === 'BEARISH' ? 'Koreksi Jenuh Beli' : data.technicals.trend}
+            {data.technicals.trend === 'NEUTRAL' ? 'NETRAL' : data.technicals.trend}
           </span>
         </div>
 
@@ -96,15 +101,27 @@ export const TechnicalMacroMatrix: React.FC<TechnicalMacroMatrixProps> = ({ data
               <Gauge className={`w-6 h-6 ${isRsiOverbought ? 'text-rose-400' : 'text-amber-400'}`} aria-hidden="true" />
             </div>
 
-            <div className="bg-emerald-500/10 p-3 rounded-xl border border-emerald-500/30 flex items-center justify-between">
+            <div className={`p-3 rounded-xl border flex items-center justify-between ${
+              isMaBearish
+                ? 'bg-rose-500/10 border-rose-500/30'
+                : 'bg-emerald-500/10 border-emerald-500/30'
+            }`}>
               <div>
                 <span className="text-[11px] text-gray-400 font-medium block">SMA 20 vs EMA 50</span>
-                <span className="text-sm font-bold font-mono text-emerald-400">
-                  {data.technicals.maCrossStatus || 'Golden Cross'}
+                <span className={`text-sm font-bold font-mono ${
+                  isMaBearish ? 'text-rose-400' : 'text-emerald-400'
+                }`}>
+                  {data.technicals.maCrossStatus || (isMaBearish ? 'Bearish Trend' : 'Bullish Trend')}
                 </span>
-                <span className="text-[10px] text-gray-400 block font-mono">SMA: {fmt(data.technicals.sma20)}</span>
+                <span className="text-[10px] text-gray-400 block font-mono">
+                  SMA: {fmt(data.technicals.sma20)} | EMA: {fmt(data.technicals.ema50)}
+                </span>
               </div>
-              <TrendingUp className="w-6 h-6 text-emerald-400" aria-hidden="true" />
+              {isMaBearish ? (
+                <TrendingDown className="w-6 h-6 text-rose-400 shrink-0" aria-hidden="true" />
+              ) : (
+                <TrendingUp className="w-6 h-6 text-emerald-400 shrink-0" aria-hidden="true" />
+              )}
             </div>
           </div>
         </div>

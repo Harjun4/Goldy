@@ -1,50 +1,132 @@
 const DEFAULT_GEMINI_MODELS = [
-  'gemini-2.5-flash',
-  'gemini-2.5-pro',
-  'gemini-2.0-flash',
+  'gemini-3.8-flash',
+  'gemini-3.5-flash',
+  'gemini-3.5-flash-lite',
+  'gemini-flash-lite-latest',
+  'gemini-3-flash-preview',
+  'gemini-3.1-flash-lite',
   'gemini-flash-latest',
-  'gemini-pro-latest',
 ];
 
-let cachedGeminiModels: string[] | null = null;
+const EXCLUDED_MODEL_PATTERNS = [
+  'gemini-1.',
+  'gemini-2.0',
+  'gemini-2.5',
+  'pro-latest',
+  'tts',
+  'image',
+  'embedding',
+  'robotics',
+  'computer-use',
+  'transcribe',
+  'omni',
+  'customtools',
+  'antigravity',
+  'deep-research',
+  'lyria',
+  'nano-banana',
+];
+
+const DISCOVERY_CACHE_TTL_MS = 30 * 60 * 1000;
+const COOLDOWN_429_MS = 10 * 60 * 1000;
+const COOLDOWN_503_MS = 2 * 60 * 1000;
+
+let cachedDiscovery: { apiKey: string; models: string[]; expiresAt: number } | null = null;
+const modelCooldowns = new Map<string, number>();
+
+export function markGeminiModelFailure(modelName: string, status: number): void {
+  if (!modelName) return;
+  if (status === 404) {
+    modelCooldowns.set(modelName, Infinity);
+  } else if (status === 429) {
+    modelCooldowns.set(modelName, Date.now() + COOLDOWN_429_MS);
+  } else if (status === 503 || status === 0 || status >= 500) {
+    modelCooldowns.set(modelName, Date.now() + COOLDOWN_503_MS);
+  }
+}
+
+function isSupportedFlashModel(model: any): boolean {
+  if (
+    !Array.isArray(model?.supportedGenerationMethods) ||
+    !model.supportedGenerationMethods.includes('generateContent') ||
+    typeof model?.name !== 'string'
+  ) {
+    return false;
+  }
+
+  const lower = model.name.replace(/^models\//, '').toLowerCase();
+  if (!lower.includes('gemini') || !lower.includes('flash')) {
+    return false;
+  }
+
+  return !EXCLUDED_MODEL_PATTERNS.some((pattern) => lower.includes(pattern));
+}
+
+function applyOverrideAndCooldown(baseModels: string[]): string[] {
+  const override = process.env.GEMINI_MODEL?.trim();
+  const candidates = override
+    ? [override, ...baseModels.filter((m) => m !== override)]
+    : [...baseModels];
+
+  const now = Date.now();
+  for (const [name, until] of modelCooldowns.entries()) {
+    if (until !== Infinity && until <= now) {
+      modelCooldowns.delete(name);
+    }
+  }
+
+  const non404 = candidates.filter((m) => modelCooldowns.get(m) !== Infinity);
+  const active = non404.filter((m) => {
+    const until = modelCooldowns.get(m);
+    return until === undefined || until <= now;
+  });
+
+  return active.length > 0 ? active : non404;
+}
 
 export async function getSupportedGeminiModels(apiKey: string): Promise<string[]> {
-  if (cachedGeminiModels && cachedGeminiModels.length > 0) {
-    return cachedGeminiModels;
+  const now = Date.now();
+  if (
+    cachedDiscovery &&
+    cachedDiscovery.apiKey === apiKey &&
+    cachedDiscovery.expiresAt > now &&
+    cachedDiscovery.models.length > 0
+  ) {
+    return applyOverrideAndCooldown(cachedDiscovery.models);
   }
 
   try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
+      { signal: AbortSignal.timeout(8000) }
+    );
     if (res.ok) {
       const data = await res.json();
-      const available = (data.models || [])
-        .filter(
-          (m: any) =>
-            Array.isArray(m.supportedGenerationMethods) &&
-            m.supportedGenerationMethods.includes('generateContent') &&
-            m.name?.includes('gemini') &&
-            !m.name?.includes('tts') &&
-            !m.name?.includes('image') &&
-            !m.name?.includes('embedding') &&
-            !m.name?.includes('robotics') &&
-            !m.name?.includes('computer-use')
-        )
-        .map((m: any) => m.name.replace('models/', ''));
+      const available: string[] = (data.models || [])
+        .filter(isSupportedFlashModel)
+        .map((m: any) => m.name.replace(/^models\//, ''));
 
-      const merged = [...DEFAULT_GEMINI_MODELS];
-      for (const modelName of available) {
-        if (!merged.includes(modelName)) {
-          merged.push(modelName);
+      if (available.length > 0) {
+        const availableSet = new Set(available);
+        const prioritized = DEFAULT_GEMINI_MODELS.filter((m) => availableSet.has(m));
+        for (const modelName of available) {
+          if (!prioritized.includes(modelName)) {
+            prioritized.push(modelName);
+          }
         }
+        cachedDiscovery = {
+          apiKey,
+          models: prioritized,
+          expiresAt: Date.now() + DISCOVERY_CACHE_TTL_MS,
+        };
+        return applyOverrideAndCooldown(prioritized);
       }
-      cachedGeminiModels = merged;
-      return merged;
     }
-  } catch (err) {
+  } catch {
     // Fallback to default official Gemini models if discovery request fails
   }
 
-  return DEFAULT_GEMINI_MODELS;
+  return applyOverrideAndCooldown(DEFAULT_GEMINI_MODELS);
 }
 
 export function buildValidGeminiContents(

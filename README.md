@@ -8,14 +8,13 @@ Aplikasi analitik kuantitatif dan prediksi harga emas multi-horizon (**H+1, H+7,
   - **Dashboard & Chart**: Grafik candlestick/area/line interaktif dengan indikator teknikal (`SMA 20`, `EMA 50`, `Bollinger Bands`, `Volume`) dan proyeksi berdampingan (`H+1`, `H+7`, `H+30`).
   - **Tabel Komparasi Prediksi**: Audit rekonsiliasi historis antara prediksi model vs harga penutupan aktual pasar (`Hit Rate`, `MAPE`, `MAE`).
   - **Sistem Price Alert**: Peringatan harga real-time (`ABOVE`, `BELOW`, `PCT_GAIN`, `PCT_DROP`) dengan audio chime Web Audio API.
-  - **Mode A (AI Market Analyst)**: Konsultasi interaktif berbasis konteks kuantitatif payload + Google Gemini API (`@google/genai`).
-  - **Mode B (Developer API Explorer)**: Generator dan inspektor payload JSON standar (`/api/goldy/predict` dan `/api/goldy/payload`).
+  - **Analisis AI (AI Market Analyst)**: Konsultasi interaktif berbasis konteks kuantitatif payload + Google Gemini API (`@google/genai`).
 - **Backend (`server.ts` & `server/`)**: Express + Vite middleware + Supabase Postgres sync + integrasi pipeline Python eksternal.
   - `server/config.ts`: Konfigurasi environment, path workspace, dan klien Supabase.
   - `server/services/payloadStore.ts`: Cache dan pembacaan `payload_goldy.json` serta `src/data/realGoldCandles.json`.
   - `server/services/supabaseSync.ts`: Sinkronisasi riwayat pasar dan evaluasi otomatis prediksi `PENDING` -> `EVALUATED`.
   - `server/services/gemini.ts`: Penemuan model resmi Google Gemini API dan normalisasi riwayat percakapan.
-  - `server/routes/api.ts`: Definisi seluruh endpoint REST API (`/api/health`, `/api/goldy/payload`, `/api/goldy/candles`, `/api/goldy/sync`, `/api/goldy/comparisons`, `/api/goldy/predict`, `/api/goldy/chat`).
+  - `server/routes/api.ts`: Definisi seluruh endpoint REST API (`/api/health`, `/api/goldy/payload`, `/api/goldy/candles`, `/api/goldy/sync`, `/api/goldy/comparisons`, `/api/goldy/chat`).
 
 ## Struktur Direktori
 

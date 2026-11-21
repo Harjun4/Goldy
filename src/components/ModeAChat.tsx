@@ -299,7 +299,7 @@ Kondisi harga **${data.asset}** saat ini tercatat di level **${fmt(data.lastPric
           </div>
           <div>
             <h2 className="text-base font-bold text-white flex items-center gap-2">
-              Mode A: Analis Pasar & Edukasi Pengguna
+              Analisis AI: Analis Pasar & Edukasi Pengguna
               <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                 Active Analyst
               </span>

@@ -2,7 +2,6 @@ import React from 'react';
 import { AssetType, ThemeMode } from '../types';
 import { 
   TrendingUp, 
-  Terminal, 
   MessageSquareText, 
   Layers, 
   Bell, 
@@ -17,8 +16,8 @@ import {
 interface HeaderProps {
   asset: AssetType;
   onSelectAsset: (asset: AssetType) => void;
-  activeTab: 'dashboard' | 'comparison' | 'modeA' | 'modeB' | 'alerts';
-  setActiveTab: (tab: 'dashboard' | 'comparison' | 'modeA' | 'modeB' | 'alerts') => void;
+  activeTab: 'dashboard' | 'comparison' | 'modeA' | 'alerts';
+  setActiveTab: (tab: 'dashboard' | 'comparison' | 'modeA' | 'alerts') => void;
   lastPrice: number;
   dailyChange: number;
   dailyChangePct: number;
@@ -136,7 +135,7 @@ export const Header: React.FC<HeaderProps> = ({
                     ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300 cursor-wait'
                     : 'bg-cyan-500/10 hover:bg-cyan-500/20 border-cyan-500/30 text-cyan-300 shadow-sm'
                 }`}
-                title="Crawl data Yahoo Finance terbaru, jalankan cleaning & model ML Advanced RF, dan perbarui payload JSON secara asinkron"
+                title="Crawl data Yahoo Finance terbaru, jalankan pipeline cleaning & inferensi Hybrid ML (RF + LSTM), dan perbarui payload JSON secara asinkron"
               >
                 <RefreshCw className={`w-3.5 h-3.5 text-cyan-400 shrink-0 ${isSyncing ? 'animate-spin' : ''}`} aria-hidden="true" />
                 <span className="truncate">{isSyncing ? 'Syncing...' : 'Synchronize'}</span>
@@ -271,21 +270,7 @@ export const Header: React.FC<HeaderProps> = ({
               }`}
             >
               <MessageSquareText className="w-3.5 h-3.5 text-amber-400 shrink-0" aria-hidden="true" />
-              <span>Mode A: Analis AI</span>
-            </button>
-
-            <button
-              id="tab-mode-b"
-              type="button"
-              onClick={() => setActiveTab('modeB')}
-              className={`min-h-[44px] flex-1 md:flex-initial flex items-center justify-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-medium whitespace-nowrap transition-colors cursor-pointer ${
-                activeTab === 'modeB'
-                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-900 border border-transparent'
-              }`}
-            >
-              <Terminal className="w-3.5 h-3.5 text-cyan-400 shrink-0" aria-hidden="true" />
-              <span>Mode B: Dev API</span>
+              <span>Analisis AI</span>
             </button>
           </nav>
         </div>
